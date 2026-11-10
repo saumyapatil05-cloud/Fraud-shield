@@ -2,12 +2,12 @@ import json
 
 def lambda_handler(event, context):
     body = json.loads(event.get("body", "{}"))
-    event_type = body.get("event_type")
     resource = body.get("resource", {})
-    amount = resource.get("amount", {})
+    amount = float(resource.get("amount", {}).get("value", 0))
 
-    print("EVENT TYPE:", event_type)
-    print("AMOUNT:", amount.get("value"), amount.get("currency_code"))
-    print("FULL RESOURCE:", json.dumps(resource))
+    if amount > 500:
+        print("FLAGGED: suspicious payment of", amount)
+    else:
+        print("OK: normal payment of", amount)
 
     return {"statusCode": 200, "body": "ok"}
