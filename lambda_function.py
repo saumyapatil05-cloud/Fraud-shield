@@ -1,9 +1,12 @@
 import json
 import os
 import time
+import uuid
 import urllib.request
+import boto3  # built into Lambda, no install needed
 
 MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]
+table = boto3.resource("dynamodb", region_name="ap-south-1").Table("fraud-guard-transactions")
 
 def ask_gemini(prompt):
     data = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
@@ -23,17 +26,17 @@ def ask_gemini(prompt):
                 time.sleep(1)
     raise Exception("All models failed")
 
-def send_telegram(text, buttons=False):
+def send_telegram(text, tx_id=None):
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": os.environ["TELEGRAM_CHAT_ID"],
         "text": text,
     }
-    if buttons:
+    if tx_id:
         payload["reply_markup"] = {"inline_keyboard": [[
-            {"text": "🧊 Freeze", "callback_data": "freeze"},
-            {"text": "✅ Approve", "callback_data": "approve"},
+            {"text": "🧊 Freeze", "callback_data": f"freeze:{tx_id}"},
+            {"text": "✅ Approve", "callback_data": f"approve:{tx_id}"},
         ]]}
     req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"})
@@ -56,8 +59,23 @@ def lambda_handler(event, context):
         except Exception as e:
             print("AI ERROR:", e)
             explanation = "AI explanation unavailable. Please review this payment manually."
+
+        tx_id = uuid.uuid4().hex[:12]
         try:
-            send_telegram(f"🚨 Flagged payment: ${amount}\n\n{explanation}", buttons=True)
+            table.put_item(Item={
+                "id": tx_id,
+                "amount": str(amount),
+                "explanation": explanation,
+                "status": "pending",
+                "created": int(time.time()),
+            })
+            print("DB: saved", tx_id)
+        except Exception as e:
+            print("DB ERROR:", e)
+            tx_id = None  # no row to update, so no buttons
+
+        try:
+            send_telegram(f"🚨 Flagged payment: ${amount}\n\n{explanation}", tx_id)
             print("TELEGRAM: sent")
         except Exception as e:
             print("TELEGRAM ERROR:", e)
