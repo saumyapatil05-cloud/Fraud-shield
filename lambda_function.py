@@ -4,6 +4,7 @@ import time
 import urllib.request
 
 MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"]
+
 def ask_gemini(prompt):
     data = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
     for model in MODELS:
@@ -22,6 +23,23 @@ def ask_gemini(prompt):
                 time.sleep(1)
     raise Exception("All models failed")
 
+def send_telegram(text, buttons=False):
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": os.environ["TELEGRAM_CHAT_ID"],
+        "text": text,
+    }
+    if buttons:
+        payload["reply_markup"] = {"inline_keyboard": [[
+            {"text": "🧊 Freeze", "callback_data": "freeze"},
+            {"text": "✅ Approve", "callback_data": "approve"},
+        ]]}
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return r.read()
+
 def lambda_handler(event, context):
     body = json.loads(event.get("body", "{}"))
     resource = body.get("resource", {})
@@ -33,9 +51,16 @@ def lambda_handler(event, context):
                   "Our rule flagged it as large. In 2 sentences, explain the possible "
                   "fraud risk and recommend freeze or approve.")
         try:
-            print("AI SAYS:", ask_gemini(prompt))
+            explanation = ask_gemini(prompt)
+            print("AI SAYS:", explanation)
         except Exception as e:
             print("AI ERROR:", e)
+            explanation = "AI explanation unavailable. Please review this payment manually."
+        try:
+            send_telegram(f"🚨 Flagged payment: ${amount}\n\n{explanation}", buttons=True)
+            print("TELEGRAM: sent")
+        except Exception as e:
+            print("TELEGRAM ERROR:", e)
     else:
         print("OK: normal payment of", amount)
     return {"statusCode": 200, "body": "ok"}
