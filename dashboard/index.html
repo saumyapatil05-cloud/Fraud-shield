@@ -47,7 +47,7 @@
 
   <div class="tablebox">
     <table>
-      <thead><tr><th>Time</th><th>Amount</th><th>AI risk explanation</th><th>Status</th></tr></thead>
+     <thead><tr><th>Time</th><th>Amount</th><th>Risk</th><th>AI explanation</th><th>Status</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
     <div id="empty" class="empty" hidden>No flagged payments yet.</div>
@@ -85,7 +85,8 @@ function render(items) {
     const tr = document.createElement("tr");
     const cells = [
       new Date(i.created * 1000).toLocaleString(),
-      "$" + Number(i.amount).toFixed(2),
+            "$" + Number(i.amount).toFixed(2),
+      i.risk || "—",
       i.explanation,
     ];
     cells.forEach((text, idx) => {
