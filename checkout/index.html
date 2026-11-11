@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo Shop</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
+  input { width: 100%; padding: 10px; font-size: 18px; margin: 8px 0 20px; box-sizing: border-box; }
+  p { color: #555; }
+</style>
+</head>
+<body>
+  <h2>Demo Shop (sandbox)</h2>
+  <p>Enter an amount, then pay with your sandbox buyer account.</p>
+  <input id="amount" type="number" min="1" step="0.01" value="850">
+  <div id="paypal-buttons"></div>
+  <p id="msg"></p>
+
+  <script src="https://www.paypal.com/sdk/js?client-id=BAAlnft0fW1ECWv97MEjCFB46PtygxvlrYppy65WLoAAOTHRe2PrsO5pGNdwfUEOF8HCVIeuEIbJeYKpgs&currency=USD"></script>
+  <script>
+    paypal.Buttons({
+      createOrder: (data, actions) => actions.order.create({
+        purchase_units: [{ amount: { value: document.getElementById("amount").value } }]
+      }),
+      onApprove: (data, actions) => actions.order.capture().then(() => {
+        document.getElementById("msg").textContent =
+          "Payment done. Check Telegram and the Fraud Guard dashboard.";
+      })
+    }).render("#paypal-buttons");
+  </script>
+</body>
+</html>
