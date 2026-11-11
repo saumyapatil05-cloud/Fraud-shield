@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraud Guard</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1a1d21; --muted:#6b7280; --line:#e5e7eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --card:#181b21; --text:#e8eaed; --muted:#9aa0a6; --line:#2a2e36; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background:var(--bg); color:var(--text); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px; }
+  h1 { margin:0 0 4px; font-size: 24px; }
+  .sub { color:var(--muted); margin:0 0 24px; font-size: 14px; }
+  .stats { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:24px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat b { display:block; font-size:26px; }
+  .stat span { color:var(--muted); font-size:13px; }
+  .tablebox { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:640px; }
+  th, td { text-align:left; padding:12px 16px; border-bottom:1px solid var(--line); vertical-align:top; font-size:14px; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  tr:last-child td { border-bottom:none; }
+  .amt { font-weight:700; white-space:nowrap; }
+  .badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+  .pending  { background:#fef3c7; color:#92400e; }
+  .approved { background:#d1fae5; color:#065f46; }
+  .frozen   { background:#dbeafe; color:#1e40af; }
+  .empty { padding:32px; text-align:center; color:var(--muted); }
+  .foot { color:var(--muted); font-size:12px; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛡️ Fraud Guard</h1>
+  <p class="sub">AI-explained payment alerts for small online sellers</p>
+
+  <div class="stats">
+    <div class="stat"><b id="n-total">0</b><span>Flagged payments</span></div>
+    <div class="stat"><b id="n-pending">0</b><span>Awaiting decision</span></div>
+    <div class="stat"><b id="n-frozen">0</b><span>Frozen</span></div>
+    <div class="stat"><b id="n-approved">0</b><span>Approved</span></div>
+  </div>
+
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Time</th><th>Amount</th><th>AI risk explanation</th><th>Status</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty" hidden>No flagged payments yet.</div>
+  </div>
+  <p class="foot" id="foot">Loading…</p>
+</div>
+
+<script>
+const API_URL = "https://4vodetzqzedbhttqtpvbdvtqky0izsfo.lambda-url.ap-south-1.on.aws/";
+
+async function load() {
+  try {
+    const res = await fetch(API_URL);
+    const items = await res.json();
+    render(items);
+    document.getElementById("foot").textContent =
+      "Updated " + new Date().toLocaleTimeString() + " · refreshes every 5 seconds";
+  } catch (e) {
+    document.getElementById("foot").textContent = "Could not load data. Retrying…";
+  }
+}
+
+function render(items) {
+  const count = s => items.filter(i => i.status === s).length;
+  document.getElementById("n-total").textContent = items.length;
+  document.getElementById("n-pending").textContent = count("pending");
+  document.getElementById("n-frozen").textContent = count("frozen");
+  document.getElementById("n-approved").textContent = count("approved");
+
+  const body = document.getElementById("rows");
+  body.innerHTML = "";
+  document.getElementById("empty").hidden = items.length > 0;
+
+  for (const i of items) {
+    const tr = document.createElement("tr");
+    const cells = [
+      new Date(i.created * 1000).toLocaleString(),
+      "$" + Number(i.amount).toFixed(2),
+      i.explanation,
+    ];
+    cells.forEach((text, idx) => {
+      const td = document.createElement("td");
+      td.textContent = text;
+      if (idx === 1) td.className = "amt";
+      tr.appendChild(td);
+    });
+    const td = document.createElement("td");
+    const b = document.createElement("span");
+    b.className = "badge " + i.status;
+    b.textContent = i.status.toUpperCase();
+    td.appendChild(b);
+    tr.appendChild(td);
+    body.appendChild(tr);
+  }
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>
